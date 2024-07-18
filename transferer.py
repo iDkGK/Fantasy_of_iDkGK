@@ -60,14 +60,15 @@ if __name__ == "__main__":
         binascii.crc32(arguments.transfer_code.encode()), "02x"
     )
 
-    STATUS_NUL = "nul"
-    STATUS_SOT = "sot"
-    STATUS_SOF = "sof"
-    STATUS_EOB = "eob"
-    STATUS_EOF = "eof"
-    STATUS_SOM = "som"
-    STATUS_EOM = "eom"
-    STATUS_EOT = "eot"
+    STATUS_NUL = "stnul"
+    STATUS_ERR = "sterr"
+    STATUS_SOT = "stsot"
+    STATUS_SOF = "stsof"
+    STATUS_EOB = "steob"
+    STATUS_EOF = "steof"
+    STATUS_SOM = "stsom"
+    STATUS_EOM = "steom"
+    STATUS_EOT = "steot"
 
     """
     Named Pipe Data Sequence:
@@ -136,7 +137,10 @@ if __name__ == "__main__":
             )
             ssh_client.stdin.write("rm -f %s || true\n" % TRANS_PIPE)
         elif TRANS_MODE == "receive":
-            ssh_client.stdin.write("tail -f %s || true\n" % TRANS_PIPE)
+            ssh_client.stdin.write(
+                "(test -p %s && tail -f %s) || echo sterr || true\n"
+                % (TRANS_PIPE, TRANS_PIPE)
+            )
             time_start = time.perf_counter_ns()
             time_block = time.perf_counter_ns()
             time_transfer = 0
@@ -148,8 +152,9 @@ if __name__ == "__main__":
             with open(TRANS_FILE, "wb") as file:
                 while True:
                     receive_data += ssh_client.stdout.read(1)
-                    last_three_bytes = receive_data[-3:]
-                    if last_three_bytes in (
+                    last_five_bytes = receive_data[-5:]
+                    if last_five_bytes in (
+                        STATUS_ERR,
                         STATUS_SOT,
                         STATUS_SOF,
                         STATUS_EOB,
@@ -158,7 +163,14 @@ if __name__ == "__main__":
                         STATUS_EOM,
                         STATUS_EOT,
                     ):
-                        transfer_status = last_three_bytes
+                        transfer_status = last_five_bytes
+                    if transfer_status == STATUS_ERR:
+                        print("Unable to read data from remote data queue!")
+                        print("Please run after sender side has started.")
+                        print("File transfer failed.")
+                        transfer_status = STATUS_NUL
+                        receive_data = ""
+                        sys.exit(255)
                     if transfer_status == STATUS_SOT:
                         print(
                             "Start receiving file data and saving it to file %s."
