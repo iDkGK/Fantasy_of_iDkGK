@@ -166,7 +166,7 @@ if __name__ == "__main__":
                         transfer_status = last_five_bytes
                     if transfer_status == STATUS_ERR:
                         print("Unable to read data from remote data queue!")
-                        print("Please run after sender side has started.")
+                        print("Please wait for sender side to get ready.")
                         print("File transfer failed.")
                         transfer_status = STATUS_NUL
                         receive_data = ""
