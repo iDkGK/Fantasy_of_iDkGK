@@ -101,6 +101,7 @@ if __name__ == "__main__":
         if ssh_client.stdout is None:
             print("Unable to open stdout for ssh client!")
             sys.exit(255)
+        print("Script will automatically exit after file data is fully transfered.")
         if TRANS_MODE == "send":
             ssh_client.stdin.write(
                 "rm -f %s && mkfifo %s || true\n" % (TRANS_PIPE, TRANS_PIPE)
@@ -108,7 +109,6 @@ if __name__ == "__main__":
             ssh_client.stdin.write("echo %s > %s || true\n" % (STATUS_SOT, TRANS_PIPE))
             ssh_client.stdin.write("echo %s > %s || true\n" % (STATUS_SOF, TRANS_PIPE))
             md5_hasher = hashlib.md5()
-            file_size = 0
             with open(TRANS_FILE, "rb") as file:
                 while True:
                     block_data = file.read(BLOCK_SIZE)
@@ -117,7 +117,6 @@ if __name__ == "__main__":
                             "echo %s > %s || true\n" % (STATUS_EOF, TRANS_PIPE)
                         )
                         break
-                    file_size += len(block_data)
                     md5_hasher.update(block_data)
                     hex_data = binascii.hexlify(block_data).decode()
                     ssh_client.stdin.write(
@@ -136,12 +135,11 @@ if __name__ == "__main__":
                 % TRANS_PIPE
             )
             ssh_client.stdin.write("rm -f %s || true\n" % TRANS_PIPE)
-            print("Sending file of size %d bytes complete." % file_size)
-            print("Script will automatically exit after file data is fully received.")
         elif TRANS_MODE == "receive":
             ssh_client.stdin.write("tail -f %s || true\n" % TRANS_PIPE)
-            time_start = time.time()
-            time_transfer = time.perf_counter_ns()
+            time_start = time.perf_counter_ns()
+            time_block = time.perf_counter_ns()
+            time_transfer = 0
             md5_hasher = hashlib.md5()
             file_size = 0
             transfer_status = STATUS_NUL
@@ -163,14 +161,14 @@ if __name__ == "__main__":
                         transfer_status = last_three_bytes
                     if transfer_status == STATUS_SOT:
                         print(
-                            "\x1b[sStart receiving file data from remote data queue and saving it to file %s.\x1b[u"
-                            % TRANS_FILE,
-                            end="",
-                            flush=True,
+                            "Start receiving file data and saving it to file %s."
+                            % TRANS_FILE
                         )
+                        time_start = time.perf_counter_ns()
+                        transfer_status = STATUS_NUL
+                        receive_data = ""
                     if transfer_status == STATUS_SOF:
-                        print("")
-                        time_transfer = time.perf_counter_ns()
+                        time_block = time.perf_counter_ns()
                         transfer_status = STATUS_NUL
                         receive_data = ""
                     if transfer_status == STATUS_EOB:
@@ -182,20 +180,26 @@ if __name__ == "__main__":
                         md5_hasher.update(block_data)
                         file.write(block_data)
                         print(
-                            "\x1b[sReceiving file data at speed %.2f KB/s\x1b[u"
+                            "\x1b[sCurrent speed %.2f KB/s...\x1b[u"
                             % (
-                                1e6
-                                * block_size
-                                / (time.perf_counter_ns() - time_transfer)
+                                1e6 * block_size / (time.perf_counter_ns() - time_block)
                             ),
                             end="",
                             flush=True,
                         )
-                        time_transfer = time.perf_counter_ns()
+                        time_block = time.perf_counter_ns()
                         transfer_status = STATUS_NUL
                         receive_data = ""
                     if transfer_status == STATUS_EOF:
-                        pass
+                        time_transfer = time.perf_counter_ns() - time_start
+                        print(
+                            "\x1b[sAverage speed %.2f KB/s...\x1b[u"
+                            % (1e6 * file_size / time_transfer),
+                            end="",
+                            flush=True,
+                        )
+                        transfer_status = STATUS_NUL
+                        receive_data = ""
                     if transfer_status == STATUS_SOM:
                         transfer_status = STATUS_NUL
                         receive_data = ""
@@ -204,12 +208,15 @@ if __name__ == "__main__":
                         transfer_status = STATUS_NUL
                         receive_data = ""
                     if transfer_status == STATUS_EOT:
+                        receive_data = ""
                         break
             md5 = md5_hasher.hexdigest()
             if md5_data == md5:
                 print(
                     "\nReceiving file of %d bytes completed in %.1fs."
-                    % (file_size, time.time() - time_start)
+                    % (file_size, time_transfer / 1e9)
                 )
             else:
                 print("\nInvalid file MD5!\nRemote: %s\nLocal: %s." % (md5_data, md5))
+                sys.exit(255)
+        print("File transfer succeeded.")
