@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import binascii
 import hashlib
 import subprocess
@@ -52,7 +53,8 @@ if __name__ == "__main__":
 
     SSH_COMMAND = [
         "ssh",
-        "-o" "PubkeyAuthentication=no",
+        "-o",
+        "PubkeyAuthentication=no",
         "-T",
         arguments.server_address,
     ]
@@ -126,6 +128,12 @@ if __name__ == "__main__":
                     ssh_client.stdin.write(
                         "echo %s > %s || true\n" % (STATUS_EOB, TRANS_PIPE)
                     )
+                    print(
+                        "\x1b[sStart sending file data...\x1b[u",
+                        end="",
+                        flush=True,
+                    )
+                print("")
                 md5 = md5_hasher.hexdigest()
             ssh_client.stdin.write("echo %s > %s || true\n" % (STATUS_SOM, TRANS_PIPE))
             ssh_client.stdin.write("echo %s > %s || true\n" % (md5, TRANS_PIPE))
