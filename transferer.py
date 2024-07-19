@@ -62,15 +62,17 @@ if __name__ == "__main__":
         binascii.crc32(arguments.transfer_code.encode()), "02x"
     )
 
-    STATUS_NUL = "stnul"
-    STATUS_ERR = "sterr"
-    STATUS_SOT = "stsot"
-    STATUS_SOF = "stsof"
-    STATUS_EOB = "steob"
-    STATUS_EOF = "steof"
-    STATUS_SOM = "stsom"
-    STATUS_EOM = "steom"
-    STATUS_EOT = "steot"
+    STATUS_CODE_PATTERN = "@%s!"
+    STATUS_CODE_LENGTH = 5
+    STATUS_NUL = STATUS_CODE_PATTERN % "nul"
+    STATUS_ERR = STATUS_CODE_PATTERN % "err"
+    STATUS_SOT = STATUS_CODE_PATTERN % "sot"
+    STATUS_SOF = STATUS_CODE_PATTERN % "sof"
+    STATUS_EOB = STATUS_CODE_PATTERN % "eob"
+    STATUS_EOF = STATUS_CODE_PATTERN % "eof"
+    STATUS_SOM = STATUS_CODE_PATTERN % "som"
+    STATUS_EOM = STATUS_CODE_PATTERN % "eom"
+    STATUS_EOT = STATUS_CODE_PATTERN % "eot"
 
     """
     Named Pipe Data Sequence:
@@ -146,8 +148,8 @@ if __name__ == "__main__":
             ssh_client.stdin.write("rm -f %s || true\n" % TRANS_PIPE)
         elif TRANS_MODE == "receive":
             ssh_client.stdin.write(
-                "(test -p %s && tail -f %s) || echo sterr || true\n"
-                % (TRANS_PIPE, TRANS_PIPE)
+                "(test -p %s && tail -qf %s) || echo %s || true\n"
+                % (TRANS_PIPE, TRANS_PIPE, STATUS_ERR)
             )
             time_start = time.perf_counter_ns()
             time_block = time.perf_counter_ns()
@@ -160,8 +162,8 @@ if __name__ == "__main__":
             with open(TRANS_FILE, "wb") as file:
                 while True:
                     receive_data += ssh_client.stdout.read(1)
-                    last_five_bytes = receive_data[-5:]
-                    if last_five_bytes in (
+                    last_n_bytes = receive_data[-STATUS_CODE_LENGTH:]
+                    if last_n_bytes in (
                         STATUS_ERR,
                         STATUS_SOT,
                         STATUS_SOF,
@@ -171,7 +173,7 @@ if __name__ == "__main__":
                         STATUS_EOM,
                         STATUS_EOT,
                     ):
-                        transfer_status = last_five_bytes
+                        transfer_status = last_n_bytes
                     if transfer_status == STATUS_ERR:
                         print("Unable to read data from remote data queue!")
                         print("Please wait for sender side to get ready.")
