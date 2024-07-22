@@ -64,15 +64,15 @@ if __name__ == "__main__":
 
     STATUS_CODE_PATTERN = "@%s!"
     STATUS_CODE_LENGTH = 5
-    STATUS_NUL = STATUS_CODE_PATTERN % "nul"
-    STATUS_ERR = STATUS_CODE_PATTERN % "err"
-    STATUS_SOT = STATUS_CODE_PATTERN % "sot"
-    STATUS_SOF = STATUS_CODE_PATTERN % "sof"
-    STATUS_EOB = STATUS_CODE_PATTERN % "eob"
-    STATUS_EOF = STATUS_CODE_PATTERN % "eof"
-    STATUS_SOM = STATUS_CODE_PATTERN % "som"
-    STATUS_EOM = STATUS_CODE_PATTERN % "eom"
-    STATUS_EOT = STATUS_CODE_PATTERN % "eot"
+    STATUS_NUL = STATUS_CODE_PATTERN % "nul"  # Null Status
+    STATUS_ERR = STATUS_CODE_PATTERN % "err"  # Error Status
+    STATUS_SOT = STATUS_CODE_PATTERN % "sot"  # Start of Transfer Status
+    STATUS_SOF = STATUS_CODE_PATTERN % "sof"  # Start of File Status
+    STATUS_EOB = STATUS_CODE_PATTERN % "eob"  # End of Block Status
+    STATUS_EOF = STATUS_CODE_PATTERN % "eof"  # End of File Status
+    STATUS_SOM = STATUS_CODE_PATTERN % "som"  # Start of MD5 Status
+    STATUS_EOM = STATUS_CODE_PATTERN % "eom"  # End of MD5 Status
+    STATUS_EOT = STATUS_CODE_PATTERN % "eot"  # End of Transfer Status
 
     """
     Named Pipe Data Sequence:
